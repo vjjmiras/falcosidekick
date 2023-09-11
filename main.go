@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -24,7 +23,8 @@ import (
 
 // Globale variables
 var (
-	nullClient          *outputs.Client
+	nullClient *outputs.Client
+	/**
 	slackClient         *outputs.Client
 	cliqClient          *outputs.Client
 	rocketchatClient    *outputs.Client
@@ -73,6 +73,7 @@ var (
 	n8nClient           *outputs.Client
 	openObserveClient   *outputs.Client
 	dynatraceClient     *outputs.Client
+	**/
 
 	statsdClient, dogstatsdClient *statsd.Client
 	config                        *types.Configuration
@@ -97,6 +98,8 @@ func init() {
 	stats = getInitStats()
 	promStats = getInitPromStats(config)
 
+	outputs.EnabledClients = make(map[string]*outputs.Client)
+
 	nullClient = &outputs.Client{
 		OutputType:      "null",
 		Config:          config,
@@ -106,152 +109,154 @@ func init() {
 		DogstatsdClient: dogstatsdClient,
 	}
 
+	outputs.EnabledClients["nullClient"] = nullClient
+
 	if config.Statsd.Forwarder != "" {
-		var err error
-		statsdClient, err = outputs.NewStatsdClient("StatsD", config, stats)
+		client, err := outputs.NewStatsdClient("StatsD", config, stats)
 		if err != nil {
 			config.Statsd.Forwarder = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "StatsD")
-			nullClient.DogstatsdClient = statsdClient
+			outputs.EnabledClients["nullClient"].StatsdClient = client
+			nullClient.DogstatsdClient = client
 		}
 	}
 
 	if config.Dogstatsd.Forwarder != "" {
-		var err error
-		dogstatsdClient, err = outputs.NewStatsdClient("DogStatsD", config, stats)
+		client, err := outputs.NewStatsdClient("DogStatsD", config, stats)
 		if err != nil {
 			config.Statsd.Forwarder = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "DogStatsD")
-			nullClient.DogstatsdClient = dogstatsdClient
+			outputs.EnabledClients["nullClient"].DogstatsdClient = client
+			nullClient.DogstatsdClient = client
 		}
 	}
 
 	if config.Slack.WebhookURL != "" {
-		var err error
-		slackClient, err = outputs.NewClient("Slack", config.Slack.WebhookURL, config.Slack.MutualTLS, config.Slack.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient("Slack", config.Slack.WebhookURL, config.Slack.MutualTLS, config.Slack.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Slack.WebhookURL = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "Slack")
+			outputs.EnabledClients["Slack"] = client
 		}
 	}
 
 	if config.Cliq.WebhookURL != "" {
-		var err error
-		cliqClient, err = outputs.NewClient("Cliq", config.Cliq.WebhookURL, config.Cliq.MutualTLS, config.Cliq.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient("Cliq", config.Cliq.WebhookURL, config.Cliq.MutualTLS, config.Cliq.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Cliq.WebhookURL = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "Cliq")
+			outputs.EnabledClients["Cliq"] = client
 		}
 	}
 
 	if config.Rocketchat.WebhookURL != "" {
-		var err error
-		rocketchatClient, err = outputs.NewClient("Rocketchat", config.Rocketchat.WebhookURL, config.Rocketchat.MutualTLS, config.Rocketchat.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient("Rocketchat", config.Rocketchat.WebhookURL, config.Rocketchat.MutualTLS, config.Rocketchat.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Rocketchat.WebhookURL = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "Rocketchat")
+			outputs.EnabledClients["Rocketchat"] = client
 		}
 	}
 
 	if config.Mattermost.WebhookURL != "" {
-		var err error
-		mattermostClient, err = outputs.NewClient("Mattermost", config.Mattermost.WebhookURL, config.Mattermost.MutualTLS, config.Mattermost.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient("Mattermost", config.Mattermost.WebhookURL, config.Mattermost.MutualTLS, config.Mattermost.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Mattermost.WebhookURL = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "Mattermost")
+			outputs.EnabledClients["Mattermost"] = client
 		}
 	}
 
 	if config.Teams.WebhookURL != "" {
-		var err error
-		teamsClient, err = outputs.NewClient("Teams", config.Teams.WebhookURL, config.Teams.MutualTLS, config.Teams.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient("Teams", config.Teams.WebhookURL, config.Teams.MutualTLS, config.Teams.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Teams.WebhookURL = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "Teams")
+			outputs.EnabledClients["Teams"] = client
 		}
 	}
 
 	if config.Datadog.APIKey != "" {
-		var err error
-		datadogClient, err = outputs.NewClient("Datadog", config.Datadog.Host+outputs.DatadogPath+"?api_key="+config.Datadog.APIKey, config.Datadog.MutualTLS, config.Datadog.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient("Datadog", config.Datadog.Host+outputs.DatadogPath+"?api_key="+config.Datadog.APIKey, config.Datadog.MutualTLS, config.Datadog.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Datadog.APIKey = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "Datadog")
+			outputs.EnabledClients["Datadog"] = client
 		}
 	}
 
 	if config.Discord.WebhookURL != "" {
-		var err error
-		discordClient, err = outputs.NewClient("Discord", config.Discord.WebhookURL, config.Discord.MutualTLS, config.Discord.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient("Discord", config.Discord.WebhookURL, config.Discord.MutualTLS, config.Discord.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Discord.WebhookURL = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "Discord")
+			outputs.EnabledClients["Discord"] = client
 		}
 	}
 
 	if config.Alertmanager.HostPort != "" {
-		var err error
-		alertmanagerClient, err = outputs.NewClient("AlertManager", config.Alertmanager.HostPort+config.Alertmanager.Endpoint, config.Alertmanager.MutualTLS, config.Alertmanager.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient("AlertManager", config.Alertmanager.HostPort+config.Alertmanager.Endpoint, config.Alertmanager.MutualTLS, config.Alertmanager.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Alertmanager.HostPort = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "AlertManager")
+			outputs.EnabledClients["AlertManager"] = client
 		}
 	}
 
 	if config.Elasticsearch.HostPort != "" {
-		var err error
-		elasticsearchClient, err = outputs.NewClient("Elasticsearch", config.Elasticsearch.HostPort+"/"+config.Elasticsearch.Index+"/"+config.Elasticsearch.Type, config.Elasticsearch.MutualTLS, config.Elasticsearch.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient("Elasticsearch", config.Elasticsearch.HostPort+"/"+config.Elasticsearch.Index+"/"+config.Elasticsearch.Type, config.Elasticsearch.MutualTLS, config.Elasticsearch.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Elasticsearch.HostPort = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "Elasticsearch")
+			outputs.EnabledClients["Elasticsearch"] = client
 		}
 	}
 
 	if config.Loki.HostPort != "" {
-		var err error
-		lokiClient, err = outputs.NewClient("Loki", config.Loki.HostPort+config.Loki.Endpoint, config.Loki.MutualTLS, config.Loki.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient("Loki", config.Loki.HostPort+config.Loki.Endpoint, config.Loki.MutualTLS, config.Loki.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Loki.HostPort = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "Loki")
+			outputs.EnabledClients["Loki"] = client
 		}
 	}
 
 	if config.Nats.HostPort != "" {
-		var err error
-		natsClient, err = outputs.NewClient("NATS", config.Nats.HostPort, config.Nats.MutualTLS, config.Nats.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient("NATS", config.Nats.HostPort, config.Nats.MutualTLS, config.Nats.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Nats.HostPort = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "NATS")
+			outputs.EnabledClients["NATS"] = client
 		}
 	}
 
 	if config.Stan.HostPort != "" && config.Stan.ClusterID != "" && config.Stan.ClientID != "" {
-		var err error
-		stanClient, err = outputs.NewClient("STAN", config.Stan.HostPort, config.Stan.MutualTLS, config.Stan.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient("STAN", config.Stan.HostPort, config.Stan.MutualTLS, config.Stan.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Stan.HostPort = ""
 			config.Stan.ClusterID = ""
 			config.Stan.ClientID = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "STAN")
+			outputs.EnabledClients["STAN"] = client
 		}
 	}
 
 	if config.Influxdb.HostPort != "" {
-		var url string = config.Influxdb.HostPort
+		var url = config.Influxdb.HostPort
 		if config.Influxdb.Organization != "" && config.Influxdb.Bucket != "" {
 			url += "/api/v2/write?org=" + config.Influxdb.Organization + "&bucket=" + config.Influxdb.Bucket
 		} else if config.Influxdb.Database != "" {
@@ -264,20 +269,20 @@ func init() {
 			url += "&precision=" + config.Influxdb.Precision
 		}
 
-		var err error
-		influxdbClient, err = outputs.NewClient("Influxdb", url, config.Influxdb.MutualTLS, config.Influxdb.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient("Influxdb", url, config.Influxdb.MutualTLS, config.Influxdb.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Influxdb.HostPort = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "Influxdb")
+			outputs.EnabledClients["Influxdb"] = client
 		}
 	}
 
 	if config.AWS.Lambda.FunctionName != "" || config.AWS.SQS.URL != "" ||
 		config.AWS.SNS.TopicArn != "" || config.AWS.CloudWatchLogs.LogGroup != "" || config.AWS.S3.Bucket != "" ||
 		config.AWS.Kinesis.StreamName != "" || (config.AWS.SecurityLake.Bucket != "" && config.AWS.SecurityLake.Region != "" && config.AWS.SecurityLake.AccountID != "") {
-		var err error
-		awsClient, err = outputs.NewAWSClient(config, stats, promStats, statsdClient, dogstatsdClient)
+		// var err error
+		client, err := outputs.NewAWSClient(config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.AWS.AccessKeyID = ""
 			config.AWS.SecretAccessKey = ""
@@ -295,21 +300,28 @@ func init() {
 		} else {
 			if config.AWS.Lambda.FunctionName != "" {
 				outputs.EnabledOutputs = append(outputs.EnabledOutputs, "AWSLambda")
+				outputs.EnabledClients["AWSLambda"] = client
 			}
 			if config.AWS.SQS.URL != "" {
 				outputs.EnabledOutputs = append(outputs.EnabledOutputs, "AWSSQS")
+				outputs.EnabledClients["AWSSQS"] = client
 			}
 			if config.AWS.SNS.TopicArn != "" {
 				outputs.EnabledOutputs = append(outputs.EnabledOutputs, "AWSSNS")
+				outputs.EnabledClients["AWSSNS"] = client
 			}
 			if config.AWS.CloudWatchLogs.LogGroup != "" {
 				outputs.EnabledOutputs = append(outputs.EnabledOutputs, "AWSCloudWatchLogs")
+				outputs.EnabledClients["AWSCloudWatchLogs"] = client
 			}
 			if config.AWS.S3.Bucket != "" {
 				outputs.EnabledOutputs = append(outputs.EnabledOutputs, "AWSS3")
+				outputs.EnabledClients["AWSS3"] = client
+
 			}
 			if config.AWS.Kinesis.StreamName != "" {
 				outputs.EnabledOutputs = append(outputs.EnabledOutputs, "AWSKinesis")
+				outputs.EnabledClients["AWSKinesis"] = client
 			}
 			if config.AWS.SecurityLake.Bucket != "" && config.AWS.SecurityLake.Region != "" && config.AWS.SecurityLake.AccountID != "" && config.AWS.SecurityLake.Prefix != "" {
 				config.AWS.SecurityLake.Ctx = context.Background()
@@ -318,7 +330,7 @@ func init() {
 				if config.AWS.SecurityLake.Interval < 5 {
 					config.AWS.SecurityLake.Interval = 5
 				}
-				go awsClient.StartSecurityLakeWorker()
+				go client.StartSecurityLakeWorker()
 				if err != nil {
 					config.AWS.SecurityLake.Region = ""
 					config.AWS.SecurityLake.Bucket = ""
@@ -326,81 +338,81 @@ func init() {
 					config.AWS.SecurityLake.Prefix = ""
 				} else {
 					outputs.EnabledOutputs = append(outputs.EnabledOutputs, "AWSSecurityLake")
+					outputs.EnabledClients["AWSSecurityLake"] = client
 				}
 			}
 		}
 	}
 
 	if config.SMTP.HostPort != "" && config.SMTP.From != "" && config.SMTP.To != "" {
-		var err error
-		smtpClient, err = outputs.NewSMTPClient(config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewSMTPClient(config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.SMTP.HostPort = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "SMTP")
+			outputs.EnabledClients["SMTP"] = client
 		}
 	}
 
 	if config.Opsgenie.APIKey != "" {
-		var err error
 		url := "https://api.opsgenie.com/v2/alerts"
 		if strings.ToLower(config.Opsgenie.Region) == "eu" {
 			url = "https://api.eu.opsgenie.com/v2/alerts"
 		}
-		opsgenieClient, err = outputs.NewClient("Opsgenie", url, config.Opsgenie.MutualTLS, config.Opsgenie.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient("Opsgenie", url, config.Opsgenie.MutualTLS, config.Opsgenie.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Opsgenie.APIKey = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "Opsgenie")
+			outputs.EnabledClients["Opsgenie"] = client
 		}
 	}
 
 	if config.Webhook.Address != "" {
-		var err error
-		webhookClient, err = outputs.NewClient("Webhook", config.Webhook.Address, config.Webhook.MutualTLS, config.Webhook.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient("Webhook", config.Webhook.Address, config.Webhook.MutualTLS, config.Webhook.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Webhook.Address = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "Webhook")
+			outputs.EnabledClients["Webhook"] = client
 		}
 	}
 
 	if config.NodeRed.Address != "" {
-		var err error
-		noderedClient, err = outputs.NewClient("NodeRed", config.NodeRed.Address, false, config.NodeRed.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient("NodeRed", config.NodeRed.Address, false, config.NodeRed.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.NodeRed.Address = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "NodeRed")
+			outputs.EnabledClients["NodeRed"] = client
 		}
 	}
 
 	if config.CloudEvents.Address != "" {
-		var err error
-		cloudeventsClient, err = outputs.NewClient("CloudEvents", config.CloudEvents.Address, config.CloudEvents.MutualTLS, config.CloudEvents.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient("CloudEvents", config.CloudEvents.Address, config.CloudEvents.MutualTLS, config.CloudEvents.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.CloudEvents.Address = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "CloudEvents")
+			outputs.EnabledClients["CloudEvents"] = client
 		}
 	}
 
 	if config.Azure.EventHub.Name != "" {
-		var err error
-		azureClient, err = outputs.NewEventHubClient(config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewEventHubClient(config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Azure.EventHub.Name = ""
 			config.Azure.EventHub.Namespace = ""
 		} else {
 			if config.Azure.EventHub.Name != "" {
 				outputs.EnabledOutputs = append(outputs.EnabledOutputs, "EventHub")
+				outputs.EnabledClients["EventHub"] = client
 			}
 		}
 	}
 
 	if (config.GCP.PubSub.ProjectID != "" && config.GCP.PubSub.Topic != "") || config.GCP.Storage.Bucket != "" || config.GCP.CloudFunctions.Name != "" {
-		var err error
-		gcpClient, err = outputs.NewGCPClient(config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewGCPClient(config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.GCP.PubSub.ProjectID = ""
 			config.GCP.PubSub.Topic = ""
@@ -409,284 +421,288 @@ func init() {
 		} else {
 			if config.GCP.PubSub.Topic != "" && config.GCP.PubSub.ProjectID != "" {
 				outputs.EnabledOutputs = append(outputs.EnabledOutputs, "GCPPubSub")
+				outputs.EnabledClients["GCPPubSub"] = client
 			}
 			if config.GCP.Storage.Bucket != "" {
 				outputs.EnabledOutputs = append(outputs.EnabledOutputs, "GCPStorage")
+				outputs.EnabledClients["GCPStorage"] = client
 			}
 			if config.GCP.CloudFunctions.Name != "" {
 				outputs.EnabledOutputs = append(outputs.EnabledOutputs, "GCPCloudFunctions")
+				outputs.EnabledClients["GCPCloudFunctions"] = client
 			}
 		}
 	}
 
 	if config.GCP.CloudRun.Endpoint != "" && config.GCP.CloudRun.JWT != "" {
-		var err error
 		var outputName = "GCPCloudRun"
 
-		gcpCloudRunClient, err = outputs.NewClient(outputName, config.GCP.CloudRun.Endpoint, false, false, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient(outputName, config.GCP.CloudRun.Endpoint, false, false, config, stats, promStats, statsdClient, dogstatsdClient)
 
 		if err != nil {
 			config.GCP.CloudRun.Endpoint = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, outputName)
+			outputs.EnabledClients["GCPCloudRun"] = client
 		}
 	}
 
 	if config.Googlechat.WebhookURL != "" {
-		var err error
-		googleChatClient, err = outputs.NewClient("Googlechat", config.Googlechat.WebhookURL, config.Googlechat.MutualTLS, config.Googlechat.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient("Googlechat", config.Googlechat.WebhookURL, config.Googlechat.MutualTLS, config.Googlechat.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Googlechat.WebhookURL = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "GoogleChat")
+			outputs.EnabledClients["GoogleChat"] = client
 		}
 	}
 
 	if config.Kafka.HostPort != "" && config.Kafka.Topic != "" {
-		var err error
-		kafkaClient, err = outputs.NewKafkaClient(config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewKafkaClient(config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Kafka.HostPort = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "Kafka")
+			outputs.EnabledClients["Kafka"] = client
 		}
 	}
 
 	if config.KafkaRest.Address != "" {
-		var err error
-		kafkaRestClient, err = outputs.NewClient("KafkaRest", config.KafkaRest.Address, config.KafkaRest.MutualTLS, config.KafkaRest.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient("KafkaRest", config.KafkaRest.Address, config.KafkaRest.MutualTLS, config.KafkaRest.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.KafkaRest.Address = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "KafkaRest")
+			outputs.EnabledClients["KafkaRest"] = client
 		}
 	}
 
 	if config.Pagerduty.RoutingKey != "" {
-		var err error
 		var url = "https://events.pagerduty.com/v2/enqueue"
 		var outputName = "Pagerduty"
 
-		pagerdutyClient, err = outputs.NewClient(outputName, url, config.Pagerduty.MutualTLS, config.Pagerduty.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient(outputName, url, config.Pagerduty.MutualTLS, config.Pagerduty.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 
 		if err != nil {
 			config.Pagerduty.RoutingKey = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, outputName)
+			outputs.EnabledClients["Pagerduty"] = client
 		}
 	}
 
 	if config.Kubeless.Namespace != "" && config.Kubeless.Function != "" {
-		var err error
-		kubelessClient, err = outputs.NewKubelessClient(config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewKubelessClient(config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			log.Printf("[ERROR] : Kubeless - %v\n", err)
 			config.Kubeless.Namespace = ""
 			config.Kubeless.Function = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "Kubeless")
+			outputs.EnabledClients["Kubeless"] = client
 		}
 	}
 
 	if config.WebUI.URL != "" {
-		var err error
-		webUIClient, err = outputs.NewClient("WebUI", config.WebUI.URL, config.WebUI.MutualTLS, config.WebUI.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient("WebUI", config.WebUI.URL, config.WebUI.MutualTLS, config.WebUI.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.WebUI.URL = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "WebUI")
+			outputs.EnabledClients["WebUI"] = client
 		}
 	}
 
 	if config.PolicyReport.Enabled {
-		var err error
-		policyReportClient, err = outputs.NewPolicyReportClient(config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewPolicyReportClient(config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.PolicyReport.Enabled = false
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "PolicyReport")
+			outputs.EnabledClients["PolicyReport"] = client
 		}
 	}
 
 	if config.Openfaas.FunctionName != "" {
-		var err error
-		openfaasClient, err = outputs.NewOpenfaasClient(config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewOpenfaasClient(config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			log.Printf("[ERROR] : OpenFaaS - %v\n", err)
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "OpenFaaS")
+			outputs.EnabledClients["OpenFaaS"] = client
 		}
 	}
 
 	if config.Tekton.EventListener != "" {
-		var err error
-		tektonClient, err = outputs.NewClient("Tekton", config.Tekton.EventListener, false, config.Tekton.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient("Tekton", config.Tekton.EventListener, false, config.Tekton.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			log.Printf("[ERROR] : Tekton - %v\n", err)
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "Tekton")
+			outputs.EnabledClients["Tekton"] = client
 		}
 	}
 
 	if config.Rabbitmq.URL != "" && config.Rabbitmq.Queue != "" {
-		var err error
-		rabbitmqClient, err = outputs.NewRabbitmqClient(config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewRabbitmqClient(config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Rabbitmq.URL = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "RabbitMQ")
+			outputs.EnabledClients["RabbitMQ"] = client
 		}
 	}
 
 	if config.Wavefront.EndpointType != "" && config.Wavefront.EndpointHost != "" {
-		var err error
-		wavefrontClient, err = outputs.NewWavefrontClient(config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewWavefrontClient(config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			log.Printf("[ERROR] : Wavefront - %v\n", err)
 			config.Wavefront.EndpointHost = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "Wavefront")
+			outputs.EnabledClients["Wavefront"] = client
 		}
 	}
 
 	if config.Fission.Function != "" {
-		var err error
-		fissionClient, err = outputs.NewFissionClient(config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewFissionClient(config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			log.Printf("[ERROR] : Fission - %v\n", err)
 		} else {
+			// outputs.EnabledOutputs = append(outputs.EnabledOutputs, outputs.Fission)
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, outputs.Fission)
+			outputs.EnabledClients["Fission"] = client
 		}
 	}
 
 	if config.Grafana.HostPort != "" && config.Grafana.APIKey != "" {
-		var err error
 		var outputName = "Grafana"
-		grafanaClient, err = outputs.NewClient(outputName, config.Grafana.HostPort+"/api/annotations", config.Grafana.MutualTLS, config.Grafana.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient(outputName, config.Grafana.HostPort+"/api/annotations", config.Grafana.MutualTLS, config.Grafana.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Grafana.HostPort = ""
 			config.Grafana.APIKey = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, outputName)
+			outputs.EnabledClients["Grafana"] = client
+
 		}
 	}
 
 	if config.GrafanaOnCall.WebhookURL != "" {
-		var err error
 		var outputName = "GrafanaOnCall"
-		grafanaOnCallClient, err = outputs.NewClient(outputName, config.GrafanaOnCall.WebhookURL, config.GrafanaOnCall.MutualTLS, config.GrafanaOnCall.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient(outputName, config.GrafanaOnCall.WebhookURL, config.GrafanaOnCall.MutualTLS, config.GrafanaOnCall.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.GrafanaOnCall.WebhookURL = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, outputName)
+			outputs.EnabledClients["GrafanaOnCall"] = client
 		}
 	}
 
 	if config.Yandex.S3.Bucket != "" {
-		var err error
-		yandexClient, err = outputs.NewYandexClient(config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewYandexClient(config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Yandex.S3.Bucket = ""
 			log.Printf("[ERROR] : Yandex - %v\n", err)
 		} else {
 			if config.Yandex.S3.Bucket != "" {
 				outputs.EnabledOutputs = append(outputs.EnabledOutputs, "YandexS3")
+				outputs.EnabledClients["YandexS3"] = client
 			}
 		}
 	}
 
 	if config.Yandex.DataStreams.StreamName != "" {
-		var err error
-		yandexClient, err = outputs.NewYandexClient(config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewYandexClient(config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Yandex.DataStreams.StreamName = ""
 			log.Printf("[ERROR] : Yandex - %v\n", err)
 		} else {
 			if config.Yandex.DataStreams.StreamName != "" {
 				outputs.EnabledOutputs = append(outputs.EnabledOutputs, "YandexDataStreams")
+				outputs.EnabledClients["YandexDataStreams"] = client
 			}
 		}
 	}
 
 	if config.Syslog.Host != "" {
-		var err error
-		syslogClient, err = outputs.NewSyslogClient(config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewSyslogClient(config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Syslog.Host = ""
 			log.Printf("[ERROR] : Syslog - %v\n", err)
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "Syslog")
+			outputs.EnabledClients["Syslog"] = client
 		}
 	}
 
 	if config.MQTT.Broker != "" {
-		var err error
-		mqttClient, err = outputs.NewMQTTClient(config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewMQTTClient(config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.MQTT.Broker = ""
 			log.Printf("[ERROR] : MQTT - %v\n", err)
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "MQTT")
+			outputs.EnabledClients["MQTT"] = client
 		}
 	}
 
 	if config.Zincsearch.HostPort != "" {
-		var err error
-		zincsearchClient, err = outputs.NewClient("Zincsearch", config.Zincsearch.HostPort+"/api/"+config.Zincsearch.Index+"/_doc", false, config.Zincsearch.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient("Zincsearch", config.Zincsearch.HostPort+"/api/"+config.Zincsearch.Index+"/_doc", false, config.Zincsearch.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Zincsearch.HostPort = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "Zincsearch")
+			outputs.EnabledClients["Zincsearch"] = client
 		}
 	}
 
 	if config.Gotify.HostPort != "" {
-		var err error
-		gotifyClient, err = outputs.NewClient("Gotify", config.Gotify.HostPort+"/message", false, config.Gotify.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient("Gotify", config.Gotify.HostPort+"/message", false, config.Gotify.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Gotify.HostPort = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "Gotify")
+			outputs.EnabledClients["Gotify"] = client
 		}
 	}
 
 	if config.Spyderbat.OrgUID != "" {
-		var err error
-		spyderbatClient, err = outputs.NewSpyderbatClient(config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewSpyderbatClient(config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Spyderbat.OrgUID = ""
 			log.Printf("[ERROR] : Spyderbat - %v\n", err)
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "Spyderbat")
+			outputs.EnabledClients["Spyderbat"] = client
 		}
 	}
 
 	if config.TimescaleDB.Host != "" {
-		var err error
-		timescaleDBClient, err = outputs.NewTimescaleDBClient(config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewTimescaleDBClient(config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.TimescaleDB.Host = ""
 			log.Printf("[ERROR] : TimescaleDB - %v\n", err)
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "TimescaleDB")
+			outputs.EnabledClients["TimescaleDB"] = client
 		}
 	}
 
 	if config.Redis.Address != "" {
-		var err error
-		redisClient, err = outputs.NewRedisClient(config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewRedisClient(config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Redis.Address = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "Redis")
+			outputs.EnabledClients["Redis"] = client
 		}
 	}
 
 	if config.Telegram.ChatID != "" && config.Telegram.Token != "" {
-		var err error
 		var urlFormat = "https://api.telegram.org/bot%s/sendMessage"
 
-		telegramClient, err = outputs.NewClient("Telegram", fmt.Sprintf(urlFormat, config.Telegram.Token), false, config.Telegram.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient("Telegram", fmt.Sprintf(urlFormat, config.Telegram.Token), false, config.Telegram.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 
 		if err != nil {
 			config.Telegram.ChatID = ""
@@ -695,38 +711,39 @@ func init() {
 			log.Printf("[ERROR] : Telegram - %v\n", err)
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "Telegram")
+			outputs.EnabledClients["Telegram"] = client
 		}
 	}
 
 	if config.N8N.Address != "" {
-		var err error
-		n8nClient, err = outputs.NewClient("n8n", config.N8N.Address, false, config.N8N.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient("n8n", config.N8N.Address, false, config.N8N.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.N8N.Address = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "n8n")
+			outputs.EnabledClients["n8n"] = client
 		}
 	}
 
 	if config.OpenObserve.HostPort != "" {
-		var err error
-		openObserveClient, err = outputs.NewClient("OpenObserve", config.OpenObserve.HostPort+"/api/"+config.OpenObserve.OrganizationName+"/"+config.OpenObserve.StreamName+"/_multi", config.OpenObserve.MutualTLS, config.OpenObserve.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		client, err := outputs.NewClient("OpenObserve", config.OpenObserve.HostPort+"/api/"+config.OpenObserve.OrganizationName+"/"+config.OpenObserve.StreamName+"/_multi", config.OpenObserve.MutualTLS, config.OpenObserve.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.OpenObserve.HostPort = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "OpenObserve")
+			outputs.EnabledClients["OpenObserve"] = client
 		}
 	}
 
 	if config.Dynatrace.APIToken != "" && config.Dynatrace.APIUrl != "" {
-		var err error
-		dynatraceApiUrl := strings.TrimRight(config.Dynatrace.APIUrl, "/") + "/v2/logs/ingest"
-		dynatraceClient, err = outputs.NewClient("Dynatrace", dynatraceApiUrl, false, config.Dynatrace.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
+		dynatraceAPIURL := strings.TrimRight(config.Dynatrace.APIUrl, "/") + "/v2/logs/ingest"
+		client, err := outputs.NewClient("Dynatrace", dynatraceAPIURL, false, config.Dynatrace.CheckCert, config, stats, promStats, statsdClient, dogstatsdClient)
 		if err != nil {
 			config.Dynatrace.APIToken = ""
 			config.Dynatrace.APIUrl = ""
 		} else {
 			outputs.EnabledOutputs = append(outputs.EnabledOutputs, "Dynatrace")
+			outputs.EnabledClients["Dynatrace"] = client
 		}
 	}
 
@@ -789,7 +806,7 @@ func main() {
 				log.Printf("[DEBUG] : running mTLS server")
 			}
 
-			caCert, err := ioutil.ReadFile(config.TLSServer.CaCertFile)
+			caCert, err := os.ReadFile(config.TLSServer.CaCertFile)
 			if err != nil {
 				log.Printf("[ERROR] : %v\n", err.Error())
 			}

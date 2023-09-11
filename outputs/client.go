@@ -70,6 +70,11 @@ var ErrSASLAuthCreation = errors.New("sasl auth: wrong mechanism")
 // EnabledOutputs list all enabled outputs
 var EnabledOutputs []string
 
+// Enabled are the enabled outputs in form of a map.
+// EnabledOutputs would be a more suitable name, but it currently
+// holds a list with the 'keys' (strings) of EnabledClients.
+var EnabledClients map[string]*Client
+
 // DefaultContentType is the default Content-Type header to send along with the Client's POST Request
 const DefaultContentType = "application/json; charset=utf-8"
 
