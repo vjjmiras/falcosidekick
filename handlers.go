@@ -178,7 +178,7 @@ func newFalcoPayload(payload io.Reader) (types.FalcoPayload, error) {
 
 func forwardEvent(falcopayload types.FalcoPayload) {
 	if config.Slack.WebhookURL != "" && (falcopayload.Priority >= types.Priority(config.Slack.MinimumPriority) || falcopayload.Rule == testRule) {
-		go outputs.EnabledClients["Slack"].SlackPost(falcopayload) // older slackClient
+		go outputs.EnabledClients["Slack"].SlackPost(falcopayload)
 	}
 
 	if config.Cliq.WebhookURL != "" && (falcopayload.Priority >= types.Priority(config.Cliq.MinimumPriority) || falcopayload.Rule == testRule) {
